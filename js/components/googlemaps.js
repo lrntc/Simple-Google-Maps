@@ -1,91 +1,86 @@
+import axios from 'axios'
 import LC_GoogleMapsHelper from './maphelper';
 
-class LC_GoogleMaps {
+export class LC_GoogleMaps {
     constructor(elm = null, options = {}) {
-        let defaults =  {
+        let defaults = {
             apiKey: window.gm_api_key,
             DOMElement: this.setDOMElement(elm),
             bounds: {},
             overlay: true,
             map: {},
             settings: {
+                overview: false,
+                cluster: false,
                 zoom: (LC_GoogleMapsHelper.mobilecheck()) ? 10 : 11,
                 scrollwheel: false,
-                disableDefaultUI: true,
+                disableDefaultUI: false,
                 center: new google.maps.LatLng(0, 0),
-                styles: LC_GoogleMapsHelper.styles
+                styles: LC_GoogleMapsHelper.styles,
             },
-            markers: [ //Dummy Data
-                {
-                    lat: 38.1406578,
-                    long: 13.2872484,
-                    info: 'Dummy Info 1',
-                    meta: 'palermo'
-                },
-                {
-                    lat: 47.802904,
-                    long: 12.9863901,
-                    info: 'Dummy Info 2',
-                    meta: 'salzburg'
-                },
-                {
-                    lat: 54.3612063,
-                    long: 18.5499444,
-                    info: 'Dummy Info 3',
-                    meta: 'gdansk'
-                },
-            ],
-            options
+            markers: [],
+            markersOrigin: []
         };
-        this.state = Object.assign({}, defaults, options);
-
-// if(options.init) {
-//     this.init();
-// }
-
+        defaults.settings = Object.assign({}, defaults.settings, options);
+        this.state = Object.assign({}, defaults);
     }
 
     setDOMElement(elm) {
         return document.getElementById(elm);
     }
-    init() {
+    init(url = '') {
         this.render(this.state.mapStyle);
+        console.log(url)
+        if (url != '') {
+            //For AJAX loaded markers
+            //x-frame-options: SAMEORIGIN, SAMEORIGIN
 
-        //
-        //For AJAX loaded markers
-        //
-        // axios.get('/nl-BE/store/all')
-        // .then(function (response) {
-        //
-        //   let markers = (typeof response.data == 'object') ? response.data : JSON.parse(response.data);
-        //   LC_GoogleMapsHelper.populateMarkers(markers);
-        //   _self.renderMap();
-        //   _self.checkUrlParam();
-        //
-        // })
-        // .catch(function (error) {
-        //   console.log(error);
-        // });
+            // axios.get(url)
+            //     .then(function (response) {
+            //         console.log(response)
+            //         let markers = (typeof response.data == 'object') ? response.data : JSON.parse(response.data);
+            //         LC_GoogleMapsHelper.populateMarkers(markers);
+            //         _self.renderMap();
+            //         _self.checkUrlParam();
+
+            //     })
+            //     .catch(function (error) {
+            //         console.log(error);
+            //     });
+
+        }
+
     }
 
-    showMarkerOnMap(search) {
+    showMarkerOnMap(search, key, zoom = null) {
 
-        let centerMarker = this.state.markers.find( marker =>  marker.meta == search );
-        console.log(centerMarker);
-        google.maps.event.trigger(this.state.map, 'resize');
+        let centerMarker = this.state.markersOrigin.find(marker => marker[key].toLowerCase() === search.toLowerCase());
+
+        //TODO: Remove this?
+        //google.maps.event.trigger(this.state.map, 'resize');
         this.state.map.panTo({ lat: parseFloat(centerMarker.lat), lng: parseFloat(centerMarker.long) });
 
+        if (zoom) {
+            console.log(zoom)
+            this.state.map.zoom = parseInt(zoom) ? parseInt(zoom) : 14;
+            console.log(this.state.map.zoom)
+
+        }
     }
 
-    setMarkers(search = null, reset = false, overview) {
+    panToMarkersCenter() {
+
+    }
+
+    setMarkers(overview = false, cluster = false, reset = false) {
 
         this.state.bounds = new google.maps.LatLngBounds();
-        this.state.markers.forEach((data, index) => {
+        this.state.markersOrigin.forEach((data, index) => {
 
             let icon = LC_GoogleMapsHelper.icons.default;
 
             let marker = new google.maps.Marker({
-                position:  new google.maps.LatLng( parseFloat(data.lat),parseFloat(data.long) ),
+                position: new google.maps.LatLng(parseFloat(data.lat), parseFloat(data.long)),
                 icon: {
                     url: icon,
                     size: new google.maps.Size(LC_GoogleMapsHelper.markerSize, LC_GoogleMapsHelper.markerSize)
@@ -94,37 +89,42 @@ class LC_GoogleMaps {
                 data
             });
 
-            if(overview) {
+            this.state.markers.push(marker)
+
+            if (overview) {
                 //Re-fit map so that all markers are visible at init
                 this.state.bounds.extend(marker.position);
                 this.state.map.fitBounds(this.state.bounds);
             }
 
             //Bind click event to marker
-            marker.addListener('click', function(){
+            marker.addListener('click', () => {
                 alert('click');
             });
 
         });
 
-        if(search) {
-
-            this.showMarkerOnMap(search);
-
+        if (cluster) {
+            let markerCluster = new MarkerClusterer(this.state.map, this.state.markers,
+                { imagePath: 'https://developers.google.com/maps/documentation/javascript/examples/markerclusterer/m' });
+            markerCluster.addListener('click', () => {
+                alert('click on cluster')
+            })
         }
+
     }
 
-    search(key, overview) {
-        this.render();
-        this.setMarkers(key, false, overview);
+    searchMarker(string, key, zoom) {
+        this.showMarkerOnMap(string, key, zoom);
     }
 
-    render(search = null) {
-
+    render() {
+        this.state.markersOrigin = LC_GoogleMapsHelper.markers;
         this.state.map = new google.maps.Map(this.state.DOMElement, this.state.settings);
-        this.setMarkers();
-
+        this.setMarkers(
+            this.state.settings.overview,
+            this.state.settings.cluster,
+            false
+        );
     }
 }
-
-export { LC_GoogleMaps }

@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "webpack": "^3.10.0"
+    "axios": "^0.18.0",
+    "webpack": "^4.15.1"
   }
 }
